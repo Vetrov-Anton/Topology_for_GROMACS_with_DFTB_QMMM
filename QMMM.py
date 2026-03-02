@@ -1,4 +1,3 @@
-#gfdgfdg
 import parmed as pmd
 from parmed import Atom, Residue
 import numpy as np

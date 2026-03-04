@@ -304,11 +304,14 @@ class QM:
         for atom in group.atoms:
             if (atom not in self.qm.atoms) and (atom.idx not in mm_index) and (atom.name != 'LA'):
                 self.o_qm_protein.atoms[atom.idx].charge += dq
+
     def RC_redist(self):
         res_n = len(self.o_qm_protein.residues)
         atom_n = len(self.o_qm_protein.atoms)
         xyz = self.o_qm_protein.coordinates
         for bond in self.qmmm_bonds:
+            if bond.atom1.name == 'CP' or bond.atom2.name == 'CP':
+                continue
             if bond.atom1 not in self.qm.atoms:
                 mm1 = bond.atom1
             else:
@@ -333,6 +336,8 @@ class QM:
         atom_n = len(self.o_qm_protein.atoms)
         xyz = self.o_qm_protein.coordinates
         for bond in self.qmmm_bonds:
+            if bond.atom1.name == 'CP' or bond.atom2.name == 'CP':
+                continue
             if bond.atom1 not in self.qm.atoms:
                 mm1 = bond.atom1
             else:
@@ -358,6 +363,8 @@ class QM:
         atom_n = len(self.o_qm_protein.atoms)
         xyz = self.o_qm_protein.coordinates
         for bond in self.qmmm_bonds:
+            if bond.atom1.name == 'CP' or bond.atom2.name == 'CP':
+                continue
             if bond.atom1 not in self.qm.atoms:
                 mm1 = bond.atom1
             else:

@@ -640,6 +640,160 @@ class QM:
         self.write_outputs()
 
 
+def rewrite_hsd(xyz_file,qm_charge,top_file='qm.top', ndx_file='qm.ndx', o_hsd='dftb_in.hsd', o_gro='qm_new.gro'):
+    qm_idx = []
+    with open(ndx_file,'r') as f:
+        for line in f:
+            if line.startswith('[ QM ]'):
+                break
+        for line in f:
+            if line.startswith('['):
+                break
+            idx = list(map(str, line.strip().split()))
+            qm_idx += idx
+    amber_mask = '@' + ','.join(qm_idx)
+    top = pmd.load_file(top_file, xyz = xyz_file)
+    qm = top.view[amber_mask]
+    print(qm.atoms)
+    type2element = {
+        "c3":"C","o":"O", "no":"N", 
+        "Br": "Br",
+        "C": "C", "CA": "C", "CB": "C", "CC": "C", "CK": "C", "CM": "C", "CN": "C", "CQ": "C", "CR": "C", "CT": "C", "CV": "C", "CW": "C", "C*": "C", "C0": "C",'CG':'C','CD1':'C',
+        "F": "F", "f": "F",
+        "H": "H", "HC": "H", "H1": "H", "H2": "H", "H3": "H", "HA": "H", "H4": "H", "H5": "H", "HO": "H", "HS": "H", "HW": "H","HP": "H",'HB1':'H','HB2':'H', 'HB3':'H',
+        "I": "I",
+        "fCa": "Ca",
+        "Cl": "Cl",
+        "Na": "Na",
+        "MG": "Mg",
+        "N": "N", "NA": "N", "NB": "N", "NC": "N", "N2": "N", "N3": "N", "N*": "N",
+        "O": "O", "OW": "O", "OH": "O", "OS": "O", "O2": "O",
+        "P": "P", "p5": "P",
+        "S": "S", "ss": "S",
+        "SH": "S",
+        "CU": "Cu",
+        "FE": "Fe",
+        "K": "K",
+        "Rb": "Rb",
+        "Cs": "Cs",
+        "OW_spc": "O", "OW_tip4pew": "O", "OW_tip4p": "O", "OW_tip5p": "O", 'OW_tip3pfb':'O',
+        "HW_spc": "H", "HW_tip4pew": "H", "HW_tip4p": "H", "HW_tip5p": "H", 'HW_tip3pfb':'H',
+        "Li": "Li",
+        "Zn": "Zn",
+        "LA": "H",
+        "ho": "H", "hn": "H", "hc": "H", "hx": "H", "h1": "H", "h2": "H", "ha": "H",
+        "o": "O", "oh": "O", "os": "O",
+        "c": "C", "c3": "C", "ca": "C",
+        "n": "N", "n4": "N", "gp5": "P", "gos": "O", "go": "O", "gc3": "C", "gh1": "H", "gca": "C", "gha": "H", "gno": "N", "ghc": "H",
+        "zl": "P", "zh": "O", "zi": "O", "zj": "O", "za": "C", "zb": "C", "zc": "C",
+        "zd": "C", "ze" : "C", "zf": "C", "zg": "N", "zk": "O",
+        "X1": "C", "X2": "C", "X3":"C", "X4":"C", "X5":"C", "X6":"C", "X7":"C","X8":"C","X9":"C","X10":"C","X11":"C","X12":"C","X13":"C","X14":"C","X15":"C","X16":"C",
+        "2C": "C", "CO": "C", "3C": "C", "dza": "C", "dzb": "C", "dze": "O", "dzd": "O", "dzf": "P", "dzc": "F", "dh1": "H", "dhc": "H"
+        }
+    MaxAngularMomentum = {
+        'C': 'p', 'O': 'p', 'N': 'p', 'H': 's', 'P': 'd', 'S': 'd',
+        'Br': 'd', 'Cl': 'd', 'F': 'p', 'Ca': 'p',
+        'Zn': 'd', 'Mg': 'p', 'Na': 'p', 'K': 'p', 'Fe': 'd', 'Cu': 'd', 'Li': 'd'
+    }
+    HubbardDerivs = {
+        'Br': -0.0573,
+        'C': -0.1492,
+        'Ca': -0.034,
+        'Cl': -0.0697,
+        'F': -0.1623,
+        'H': -0.1857,
+        'I': -0.0433,
+        'K': -0.0339,
+        'Mg': -0.02,
+        'N': -0.1535,
+        'Na': -0.0454,
+        'O': -0.1575,
+        'P': -0.14,
+        'S': -0.11,
+        'Zn': -0.03,
+    }
+    skpath = "/home/domain/data/zlobin/dftb-par/3ob-3-1-ophyd/"
+
+    elements = list(set([type2element[atom.type] for atom in qm.atoms]))
+    #print(elements)
+    txt = ''
+    elements_str = ' '.join(elements)
+    txt = f"Geometry =  {{ \n   TypeNames = {elements_str}\n  TypesAndCoordinates {{\n"
+    xyz = top.coordinates
+    i = 1
+    for atom in qm.atoms:
+        if i in [91,160,92,161,108,109,107]:
+            print(i,atom.name,atom.idx+1)
+        a_xyz = xyz[atom.idx]
+        element_index = elements.index(type2element[atom.type]) + 1
+        txt += f"{element_index}{a_xyz[0]:8.3f}{a_xyz[1]:8.3f}{a_xyz[2]:8.3f}\n"
+        i+= 1
+
+    txt += "}\n}\n"
+
+    txt += f"    Hamiltonian = DFTB {{\n"
+    txt += f"    SCC = Yes\n"
+    txt += f"    SCCTolerance = 1e-6\n"
+    txt += f"    Charge = {int(qm_charge)}\n"
+    txt += f"    MaxAngularMomentum {{\n"
+
+    for e in elements:
+        txt += f'    {e} = "{MaxAngularMomentum[e]}"\n'
+
+    txt += f"    }}\n"
+    txt += f"    Dispersion = DftD4 {{\n"
+    txt += f"      s10 = 0\n"
+    txt += f"      s6 = 1\n"
+    txt += f"      s8 = 0.4727337\n"
+    txt += f"      s9 = 0\n"
+    txt += f"      a1 = 0.5467502\n"
+    txt += f"      a2 = 4.4955068\n"
+    txt += f"    }}\n"
+    txt += f"    SlaterKosterFiles = Type2FileNames {{\n"
+    txt += f"    Prefix = {skpath}\n"
+    txt += f"    Separator = \"\"\n"
+    txt += f"    LowerCaseTypeName = Yes\n"
+    txt += f"    Suffix = \"-c.spl\"   }}\n"
+    txt += f"    ThirdOrderFull = Yes\n"
+    txt += f"    HubbardDerivs {{\n"
+
+    for e in elements:
+        txt += f'    {e} = {HubbardDerivs[e]}\n'
+
+    txt += f"    }}\n"
+    txt += f"      HCorrection = Damping {{\n"
+    txt += f"        Exponent = 4.05\n"
+    txt += f"      }}\n"
+    txt += f"   }}\n"
+    txt += f"    Analysis = {{\n"
+    txt += f"      CalculateForces = Yes\n"
+    txt += f"      ProjectStates = {{}}\n"
+    txt += f"      WriteEigenvectors = No\n"
+    txt += f"      WriteBandOut = No\n"
+    txt += f"      MullikenAnalysis = No\n"
+    txt += f"      AtomResolvedEnergies = No\n"
+    txt += f"    }}\n"
+    txt += f"    Options = {{\n"
+    txt += f"      WriteDetailedOut = No\n"
+    txt += f"      WriteAutotestTag = No\n"
+    txt += f"      WriteDetailedXML = No\n"
+    txt += f"      WriteResultsTag = No\n"
+    txt += f"      RestartFrequency = 2000\n"
+    txt += f"      RandomSeed = 0\n"
+    txt += f"      WriteHS = No\n"
+    txt += f"      WriteRealHS = No\n"
+    txt += f"      MinimiseMemoryUsage = No\n"
+    txt += f"      ShowFoldedCoords = No\n"
+    txt += f"      TimingVerbosity = 0\n"
+    txt += f"      WriteChargesAsText = No\n"
+    txt += f"    }}\n"
+    with open(o_hsd, 'w') as hsd:
+        hsd.write(txt)
+    top.save(o_gro,overwrite = True,combine='all')
+    
+
+
+
     
 
 

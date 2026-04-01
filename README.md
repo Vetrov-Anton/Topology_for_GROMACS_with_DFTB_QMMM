@@ -1,1 +1,1 @@
-# Topology_for_QMMM
+# Preparation topology for GROMACS with DFTB+ QM/MM simulations
